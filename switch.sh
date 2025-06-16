@@ -21,11 +21,12 @@ sed "s/proxy_pass http:\/\/.*:5000;/proxy_pass http:\/\/$TARGET:5000;/" nginx/de
 
 # Restart nginx container
 docker rm -f nginx &>/dev/null
-docker run -d -p 80:80 --name nginx \
-  --link blue \
-  --link green \
+docker run -d --name nginx \
+  --network bluegreen
   -v $(pwd)/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro \
-  nginx
+  -v $(pwd)/nginx/.htpasswd:/etc/nginx/.htpasswd:ro \
+  -p 80:80 nginx
+
 
 echo "✅ Traffic successfully switched to $TARGET. Access via: http://localhost"
 
