@@ -28,7 +28,7 @@ jobs:
 
     - name: Build and Push Blue Image
       run: |
-        docker build -t $IMAGE_NAME:blue -f Dockerfile .
+        docker build -t $IMAGE_NAME:blue -f Dockerfile app
         docker tag $IMAGE_NAME:blue $IMAGE_NAME:latest-blue
         docker push $IMAGE_NAME:blue
         docker push $IMAGE_NAME:latest-blue
