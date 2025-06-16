@@ -35,7 +35,7 @@ jobs:
 
     - name: Build and Push Green Image
       run: |
-        docker build -t $IMAGE_NAME:green -f Dockerfile .
+        docker build -t $IMAGE_NAME:green -f Dockerfile app
         docker tag $IMAGE_NAME:green $IMAGE_NAME:latest-green
         docker push $IMAGE_NAME:green
         docker push $IMAGE_NAME:latest-green
