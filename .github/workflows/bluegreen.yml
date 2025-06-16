@@ -28,14 +28,14 @@ jobs:
 
     - name: Build and Push Blue Image
       run: |
-        docker build -t $IMAGE_NAME:blue -f Dockerfile app
+        docker build -t $IMAGE_NAME:blue -f Dockerfile .
         docker tag $IMAGE_NAME:blue $IMAGE_NAME:latest-blue
         docker push $IMAGE_NAME:blue
         docker push $IMAGE_NAME:latest-blue
 
     - name: Build and Push Green Image
       run: |
-        docker build -t $IMAGE_NAME:green -f Dockerfile app
+        docker build -t $IMAGE_NAME:green -f Dockerfile .
         docker tag $IMAGE_NAME:green $IMAGE_NAME:latest-green
         docker push $IMAGE_NAME:green
         docker push $IMAGE_NAME:latest-green
