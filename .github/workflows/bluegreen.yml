@@ -55,3 +55,101 @@ jobs:
         echo "Tagging as $GIT_TAG"
         git tag $GIT_TAG || true
         git push origin $GIT_TAG || true
+
+
+# # ======================= BLUE-GREEN DEPLOY TO DEV =======================
+#   deploy-to-dev:
+#     runs-on: [ovh]
+#     needs: build-and-push
+#     steps:
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v1
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Authenticate with Amazon ECR
+#         run: |
+#           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ env.REPO_URL }}
+
+#       - name: Pull latest Docker image
+#         run: |
+#           docker pull ${{ env.REPO_URL }}:alpha
+
+#       - name: Download .env file from S3 (Dev)
+#         run: |
+#           whoami
+#             sudo mkdir -p /home/ubuntu/semicolon/enumverse/dev
+#             sudo aws s3 cp s3://semicolon-delivery/enumverse/backend/dev/enum-identity-management-dev.env /home/ubuntu/semicolon/enumverse/dev/enum-identity-management-dev.env --region eu-west-1
+#             sudo chown ubuntu:ubuntu /home/ubuntu/semicolon/enumverse/dev/enum-identity-management-dev.env
+          
+
+#       - name: Determine active environment
+#         id: active_env
+#         run: |
+#           if sudo docker ps --format '{{.Names}}' | grep -q "${CONTAINER_NAME_PREFIX}_blue"; then
+#             echo "ACTIVE_ENV=blue" >> $GITHUB_ENV
+#             echo "NEW_ENV=green" >> $GITHUB_ENV
+#             echo "NEW_PORT=${{ env.GREEN_PORT }}" >> $GITHUB_ENV
+#           else
+#             echo "ACTIVE_ENV=green" >> $GITHUB_ENV
+#             echo "NEW_ENV=blue" >> $GITHUB_ENV
+#             echo "NEW_PORT=${{ env.BLUE_PORT }}" >> $GITHUB_ENV
+#           fi
+
+#       - name: Clean up stopped conflicting container
+#         run: |
+#           if [ "$(docker ps -aq -f name=${CONTAINER_NAME_PREFIX}_${{ env.NEW_ENV }} -f status=exited)" ]; then
+#             docker rm ${CONTAINER_NAME_PREFIX}_${{ env.NEW_ENV }}
+#           fi
+#           if [ "$(docker ps -aq -f name=${CONTAINER_NAME_PREFIX}_${{ env.NEW_ENV }} -f status=created)" ]; then
+#             docker rm ${CONTAINER_NAME_PREFIX}_${{ env.NEW_ENV }}
+#           fi
+
+#       - name: Start new container
+#         run: |
+#           sudo docker network inspect pulser_pulsar >/dev/null 2>&1 || sudo docker network create pulser_pulsar
+#           sudo docker run -d --env-file /home/ubuntu/semicolon/enumverse/dev/enum-identity-management-dev.env \
+#             --network pulser_pulsar --name ${CONTAINER_NAME_PREFIX}_${{ env.NEW_ENV }} -p ${{ env.NEW_PORT }}:${{ env.CONTAINER_PORT }} \
+#             --restart unless-stopped \
+#             ${{ env.REPO_URL }}:alpha
+
+#       - name: Health check new container
+#         run: |
+#           for i in {1..30}; do
+#             if curl -s http://localhost:${{ env.NEW_PORT }}/actuator/health | grep -q "UP"; then
+#               echo "New container is healthy!"
+#               exit 0
+#             fi
+#             sleep 5
+#           done
+#           echo "Health check failed!"
+#           sudo docker stop ${CONTAINER_NAME_PREFIX}_${{ env.NEW_ENV }}
+#           sudo docker rm ${CONTAINER_NAME_PREFIX}_${{ env.NEW_ENV }}
+#           exit 1
+
+#       - name: Update Nginx configuration
+#         run: |
+#           sudo sed -i "/server_name ${{ env.SERVER_NAME }};/,/}/ s/proxy_pass http:\/\/localhost:[0-9]\+;/proxy_pass http:\/\/localhost:${{ env.NEW_PORT }};/" ${{ env.NGINX_CONFIG_PATH }}
+#           sudo nginx -t && sudo systemctl reload nginx || exit 1
+
+#       - name: Stop and remove old container
+#         run: |
+#           if [ "${{ env.ACTIVE_ENV }}" != "${{ env.NEW_ENV }}" ]; then
+#             sudo docker stop ${CONTAINER_NAME_PREFIX}_${{ env.ACTIVE_ENV }} || true
+#             sudo docker rm ${CONTAINER_NAME_PREFIX}_${{ env.ACTIVE_ENV }} || true
+#           fi
+
+#       - name: Confirm Deployment Success
+#         run: |
+#           if sudo docker ps --format '{{.Names}}' | grep -q "${CONTAINER_NAME_PREFIX}_${{ env.NEW_ENV }}"; then
+#             echo "✅ Blue-Green Deployment to dev successful!"
+#             exit 0
+#           else
+#             echo "❌ Deployment failed!"
+#             exit 1
+#           fi
+
+#       - name: Prune unused images
+#         run: sudo docker image prune -af
